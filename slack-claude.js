@@ -9,22 +9,29 @@ const app = new App({
 });
 
 const ME = process.env.MY_SLACK_USER_ID;  // only answer the owner
-const sessions = {};                       // thread_ts -> claude session id
 
-app.event('app_mention', async ({ event, say }) => {
+app.event('app_mention', async ({ event, client, say }) => {
   if (ME && event.user !== ME) return;
   const thread = event.thread_ts || event.ts;
-  const prompt = event.text.replace(/<@[^>]+>/g, '').trim();
 
-  const args = ['-p', prompt, '--output-format', 'json'];
-  if (sessions[thread]) args.push('--resume', sessions[thread]);
+  // Read the whole thread so Claude sees full context, not just the mention.
+  const { messages } = await client.conversations.replies({
+    channel: event.channel, ts: thread, limit: 100,
+  });
+  // ponytail: bot_id present => our own reply; good enough since only this bot posts here.
+  const transcript = messages
+    .map((m) => `${m.bot_id ? 'Claude' : 'User'}: ${(m.text || '').replace(/<@[^>]+>/g, '').trim()}`)
+    .join('\n');
 
-  execFile('claude', args,
+  const prompt =
+    `You are replying in a Slack thread. Conversation so far:\n\n${transcript}\n\n` +
+    `Reply to the most recent "User" message.`;
+
+  execFile('claude', ['-p', prompt, '--output-format', 'json'],
     { cwd: process.env.CLAUDE_CWD || process.cwd(), maxBuffer: 10 << 20 },
     async (err, stdout) => {
       if (err) return void say({ thread_ts: thread, text: `error: ${err.message}` });
       const res = JSON.parse(stdout);
-      sessions[thread] = res.session_id;
       await say({ thread_ts: thread, text: res.result || '(no output)' });
     });
 });

@@ -7,7 +7,7 @@ You `@mention` your bot in Slack → the message runs through `claude -p` on you
 ## How it works
 
 - A tiny Node script connects to Slack over **Socket Mode** (an outbound WebSocket), so your machine stays behind its firewall — no ngrok, no exposed port.
-- Each Slack thread maps to one Claude session, so replies inside a thread continue the same conversation.
+- When mentioned, the bridge reads the **whole thread** (via `conversations.replies`) and passes it to Claude as context — so Claude sees the full conversation, not just the line that mentioned it.
 
 ## One rule for teams: one Slack app per developer
 
@@ -25,7 +25,18 @@ Give everyone their own app instead. Then `@claude-alice` exists only on Alice's
 4. **Install App → Install to Workspace**. Copy the *Bot User OAuth Token* `xoxb-…` → this is your `SLACK_BOT_TOKEN`.
 5. Your Slack profile → **⋯ More → Copy member ID** → this is your `MY_SLACK_USER_ID`.
 
-> Some workspaces require an admin to approve app installs. If so, get the app type approved once (bot, Socket Mode, scopes `app_mentions:read` + `chat:write`), then everyone reuses the manifest.
+> Some workspaces require an admin to approve app installs. If so, get the app type approved once (bot, Socket Mode, scopes `app_mentions:read`, `chat:write`, `channels:history`, `groups:history`), then everyone reuses the manifest.
+
+### Scopes
+
+| Scope | Why |
+|---|---|
+| `app_mentions:read` | receive the `@mention` that triggers the bot |
+| `chat:write` | post the reply |
+| `channels:history` | read the thread in **public** channels |
+| `groups:history` | read the thread in **private** channels |
+
+Add `im:history` / `mpim:history` to the manifest only if you want to DM the bot.
 
 ### 2. Configure and run
 
