@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Talk to your own local Claude Code from Slack",
+  "bin": {
+    "slack-claude": "slack-claude.js"
+  },
   "scripts": {
     "start": "node --env-file=.env slack-claude.js"
   },

@@ -42,12 +42,28 @@ Add `im:history` / `mpim:history` to the manifest only if you want to DM the bot
 
 Requires [Claude Code](https://claude.com/claude-code) installed and Node.js 20+.
 
+**Run from anywhere (global command):**
+
 ```bash
 git clone git@github.com:trco/slack-claude-bridge.git
 cd slack-claude-bridge
 npm install
+npm link                              # adds the `slack-claude` command (needs Node >= 20.12)
 
-cp .env.example .env    # then fill in your tokens + project path
+cp .env.example ~/.slack-claude.env   # tokens live here, not in the folder
+chmod 600 ~/.slack-claude.env         # then fill it in
+
+slack-claude                          # start it from any directory
+```
+
+The command reads `~/.slack-claude.env` automatically. Keep the terminal open while you use it.
+
+> With `nvm`, the `slack-claude` command is tied to the Node version you linked under. Switch Node versions → re-run `npm link`.
+
+**Or run straight from the folder (no install):**
+
+```bash
+cp .env.example .env    # fill in your tokens + project path
 npm start
 ```
 

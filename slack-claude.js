@@ -1,4 +1,11 @@
-// npm i   — then run with: node --env-file=.env slack-claude.js
+#!/usr/bin/env node
+// Global:  npm install && npm link, put tokens in ~/.slack-claude.env, then run `slack-claude` anywhere.
+// Local:   node --env-file=.env slack-claude.js
+const path = require('node:path');
+const os = require('node:os');
+// Load ~/.slack-claude.env unless the vars are already in the environment. Needs Node >= 20.12.
+try { process.loadEnvFile(process.env.SLACK_CLAUDE_ENV || path.join(os.homedir(), '.slack-claude.env')); } catch {}
+
 const { App } = require('@slack/bolt');
 const { execFile } = require('node:child_process');
 
