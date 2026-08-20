@@ -1,0 +1,12 @@
+{
+  "name": "slack-claude-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Talk to your own local Claude Code from Slack",
+  "scripts": {
+    "start": "node --env-file=.env slack-claude.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.2.0"
+  }
+}
