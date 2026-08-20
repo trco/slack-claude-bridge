@@ -1,98 +1,64 @@
 # slack-claude-bridge
 
-Talk to **your own** local Claude Code from any Slack channel — no official Slack integration, no public server, no tunnel.
+Talk to **your own** local Claude Code from any Slack channel.
 
-You `@mention` your bot in Slack → the message runs through `claude -p` on your laptop → the reply comes back in the thread.
+Mention your bot → it runs `claude` on your machine → the answer lands back in the thread. No public server, no tunnel, no third-party integration.
 
 ## How it works
 
-- A tiny Node script connects to Slack over **Socket Mode** (an outbound WebSocket), so your machine stays behind its firewall — no ngrok, no exposed port.
-- When mentioned, the bridge reads the **whole thread** (via `conversations.replies`) and passes it to Claude as context — so Claude sees the full conversation, not just the line that mentioned it.
+- Connects to Slack over **Socket Mode** — an outbound WebSocket, so your laptop stays behind its firewall.
+- On mention, it reads the **whole thread** and passes it to `claude -p` as context, then posts the reply.
 
-## One rule for teams: one Slack app per developer
+## One app per developer
 
-Do **not** share a single Slack app across the team. In Socket Mode, Slack delivers each mention to only **one** connected bridge (load-balancing), so a shared app would send your message to a random teammate's machine.
+Give each person their own Slack app — never share one. In Socket Mode, Slack sends each mention to only *one* connected bridge, so a shared app would route your message to a random teammate's machine. Separate apps mean `@claude-yourname` can only ever reach **your** bridge.
 
-Give everyone their own app instead. Then `@claude-alice` exists only on Alice's connection, so only Alice's machine can ever answer it. Isolation is automatic.
+## Setup (~3 min)
 
-## Setup (~3 minutes)
+Needs [Claude Code](https://claude.com/claude-code) and Node.js ≥ 20.12.
 
-### 1. Create your Slack app
+**1. Create your Slack app**
 
-1. Go to <https://api.slack.com/apps> → **Create New App → From a manifest**.
-2. Pick your workspace, paste [`manifest.yml`](manifest.yml), and change `YOURNAME` to your name.
-3. **Basic Information → App-Level Tokens → Generate**, scope `connections:write`. Copy the `xapp-…` token → this is your `SLACK_APP_TOKEN`.
-4. **Install App → Install to Workspace**. Copy the *Bot User OAuth Token* `xoxb-…` → this is your `SLACK_BOT_TOKEN`.
-5. Your Slack profile → **⋯ More → Copy member ID** → this is your `MY_SLACK_USER_ID`.
+1. [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From a manifest** → paste [`manifest.yml`](manifest.yml) (change `YOURNAME`).
+2. **Basic Information → App-Level Tokens** → generate one with `connections:write` → `xapp-…`
+3. **Install App** → copy the *Bot User OAuth Token* → `xoxb-…`
+4. Your Slack profile → **⋯ → Copy member ID** → `U…`
 
-> Some workspaces require an admin to approve app installs. If so, get the app type approved once (bot, Socket Mode, scopes `app_mentions:read`, `chat:write`, `channels:history`, `groups:history`), then everyone reuses the manifest.
+> Workspace requires admin approval for app installs? Get the app type approved once (bot, Socket Mode, scopes `app_mentions:read`, `chat:write`, `channels:history`, `groups:history`), then everyone reuses the manifest.
 
-### Scopes
-
-| Scope | Why |
-|---|---|
-| `app_mentions:read` | receive the `@mention` that triggers the bot |
-| `chat:write` | post the reply |
-| `channels:history` | read the thread in **public** channels |
-| `groups:history` | read the thread in **private** channels |
-
-Add `im:history` / `mpim:history` to the manifest only if you want to DM the bot.
-
-### 2. Configure and run
-
-Requires [Claude Code](https://claude.com/claude-code) installed and Node.js 20+.
-
-**Run from anywhere (global command):**
+**2. Install & configure**
 
 ```bash
 git clone git@github.com:trco/slack-claude-bridge.git
 cd slack-claude-bridge
 npm install
-npm link                              # adds the `slack-claude` command (needs Node >= 20.12)
+npm link                              # adds the `slack-claude` command
 
-cp .env.example ~/.slack-claude.env   # tokens live here, not in the folder
-chmod 600 ~/.slack-claude.env         # then fill it in
-
-slack-claude                          # start it from any directory
+cp .env.example ~/.slack-claude.env   # fill in tokens + project path
+chmod 600 ~/.slack-claude.env
 ```
 
-The command reads `~/.slack-claude.env` automatically. Keep the terminal open while you use it.
-
-> With `nvm`, the `slack-claude` command is tied to the Node version you linked under. Switch Node versions → re-run `npm link`.
-
-**Or run straight from the folder (no install):**
+**3. Run**
 
 ```bash
-cp .env.example .env    # fill in your tokens + project path
-npm start
+slack-claude          # from any directory
 ```
 
-### 3. Use it
+Invite the bot to a channel and mention it. Keep the terminal open while you use it.
 
-Invite your bot to a channel and mention it:
+> Using `nvm`? The `slack-claude` command is tied to the Node version you linked under — switch versions, re-run `npm link`.
 
-```
-@claude-yourname what's failing in the latest test run?
-```
-
-Reply in the thread to keep the conversation going.
-
-## Configuration (`.env`)
+## Config — `~/.slack-claude.env`
 
 | Variable | What it is |
 |---|---|
 | `SLACK_BOT_TOKEN` | Bot User OAuth Token (`xoxb-…`) |
 | `SLACK_APP_TOKEN` | App-Level Token for Socket Mode (`xapp-…`) |
-| `MY_SLACK_USER_ID` | Your Slack member ID — the bridge only answers you |
-| `CLAUDE_CWD` | Working directory Claude runs in (your project root) |
+| `MY_SLACK_USER_ID` | Your member ID — the bot answers **only you** |
+| `CLAUDE_CWD` | Folder Claude works in (a project root, or your home dir) |
+
+The command reads this file automatically — don't `source` it into your shell, or a stale export there will override it.
 
 ## Security
 
-This is remote code execution into your machine, gated by your Slack account. Two guards keep it yours:
-
-- **Routing by identity** — your bot lives only on your Socket Mode connection, so mentions can physically only reach your machine.
-- **Owner filter** — `MY_SLACK_USER_ID` means even if a teammate mentions your bot, it ignores everyone but you.
-
-Keep Claude's tool permissions **on**. In `-p` mode Claude won't run approval-gated tools by default, so it mostly reads and answers. Only add `--dangerously-skip-permissions` (in `slack-claude.js`) if you accept handing your machine to your own Slack account.
-
-`.env` is gitignored — never commit your tokens.
+Each bridge is remote code execution into your machine, gated by your Slack account. `MY_SLACK_USER_ID` restricts triggers to you, and in `-p` mode Claude won't run approval-gated tools by default — so it mostly reads and answers. `.env` is gitignored; never commit your tokens.
